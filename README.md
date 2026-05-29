@@ -12,43 +12,77 @@ Bygger PHP/Apache-imagen som kör Laravel.
 
 - Utgår från `php:8.4-apache`
 - Installerar systemberoenden (git, zip, libpng m.fl.) och PHP-tillägg (pdo_mysql, mbstring, gd, zip m.fl.)
-- Aktiverar Apache `mod_rewrite` (krävs för Laravels routing)
-- Installerar Composer och scaffoldar ett nytt Laravel-projekt med `composer create-project`
-- Kopierar in `app/.env` (databasinställningar) och genererar `APP_KEY` automatiskt
-- Pekar Apaches DocumentRoot till Laravels `public/`-mapp
+- Aktiverar Apache `mod_rewrite` och driftsätter en ren VirtualHost-konfig via `docker/apache.conf`
+- Installerar Composer och kör `composer install` på projektets egna `composer.json`/`composer.lock`
+- `vendor/` byggs in i imagen och monteras **aldrig** som volym — detta ger full native I/O-prestanda på Windows, macOS och Linux
+- Genererar `APP_KEY` vid build-tid (kan överridas via `.env` vid runtime)
+- Startar via `docker/entrypoint.sh`
+
+### `docker/apache.conf`
+
+Apache VirtualHost-konfig som pekar DocumentRoot mot Laravels `public/`-mapp och sätter `AllowOverride All` så att Laravels `.htaccess` (pretty URLs) fungerar korrekt.
+
+### `docker/entrypoint.sh`
+
+Körs automatiskt varje gång `app`-containern startar:
+
+1. Hanterar tomt `APP_KEY` (faller tillbaka på build-time-nyckeln)
+2. Skapar saknade `storage/`-undermappar (viktigt vid fresh clone)
+3. Sätter rättigheter på bind-monterade mappar
+4. Väntar tills MySQL är redo att ta emot anslutningar
+5. Kör `php artisan migrate --force` automatiskt
+6. Startar Apache
 
 ### `docker-compose.yml`
 
-Definierar två tjänster:
+Definierar tre tjänster:
 
 **`app`** — Laravel/Apache-containern
 - Bygger imagen från `Dockerfile`
 - Exponerar port definierad i `.env` (`APP_PORT`) → port 80 i containern
-- Monterar lokala mappar som volymer så att kodändringar syns direkt utan rebuild:
-  - `routes/`, `resources/views/`, `app/`, `database/migrations/`, `public/`
+- Monterar källkodsmapparna för live-redigering utan rebuild:
+  - `app/`, `config/`, `database/`, `routes/`, `resources/`, `public/`, `storage/`, `bootstrap/app.php`, `bootstrap/providers.php`
+- `vendor/` monteras **inte** (finns i imagen) — eliminerar bind-mount-fördröjning på Windows/macOS
+- Väntar på att `db` är fullt redo (`service_healthy`) innan containern startar
 
 **`db`** — MySQL 8.0-containern
 - Läser databasinställningar från `.env`
+- Har en healthcheck så övriga tjänster vet när databasen faktiskt är redo
 - Sparar databasdata i en namngiven volym (`dbdata`) som överlever omstarter
+
+**`phpmyadmin`** — Webbaserat databashanteringsgränssnitt
+- Tillgänglig på `http://localhost:8080`
+- Kopplar automatiskt upp mot `db`-tjänsten
 
 ### `.env`
 
-Konfigurerar Docker-miljön (läses av `docker-compose.yml`):
+Konfigurerar både Laravel och Docker-miljön (läses av `docker-compose.yml`):
 
 | Variabel | Beskrivning |
 |---|---|
-| `APP_PORT` | Port applikationen nås på (standard: 8000) |
-| `DB_PORT` | Port MySQL exponeras på (standard: 3306) |
+| `APP_NAME` | Applikationsnamn |
+| `APP_ENV` | Miljö (`local` / `production`) |
+| `APP_KEY` | Krypteringsnyckel — lämna tom lokalt (byggs in i imagen) |
+| `APP_DEBUG` | Visa detaljerade felmeddelanden (`true` / `false`) |
+| `APP_URL` | Publik URL till applikationen |
+| `APP_PORT` | Port applikationen nås på lokalt (standard: `8000`) |
+| `SESSION_DRIVER` | Sessionslagring (`file` för lokal miljö) |
+| `DB_HOST` | Databashost — ska vara `db` i Docker, `127.0.0.1` på webhotell |
+| `DB_PORT` | Port MySQL exponeras på (standard: `3306`) |
 | `DB_DATABASE` | Databasnamn |
 | `DB_USERNAME` | Databasanvändare |
 | `DB_PASSWORD` | Databaslösenord |
-| `DB_ROOT_PASSWORD` | MySQL root-lösenord |
+| `DB_ROOT_PASSWORD` | MySQL root-lösenord (används av Docker-containern) |
 
 > **OBS:** Commita aldrig `.env` med riktiga lösenord till versionshantering.
 
 ### `.env.example`
 
-Mall för Laravel-konfiguration. Kopieras till `.env` vid driftsättning på webhotell och fylls i med riktiga värden.
+Mall med alla nödvändiga variabler (inga hemligheter). Används som utgångspunkt för `.env` — lokalt och på webhotell.
+
+### `.dockerignore`
+
+Talar om för Docker vilka filer som ska uteslutas från byggkontexten. Håller imagen liten och säker: exkluderar `.env`, `vendor/`, `.git/`, genererade caches m.m.
 
 ---
 
@@ -76,45 +110,56 @@ copy .env.example .env
 Öppna `.env` och justera vid behov:
 
 ```
-APP_PORT=8000        # Port applikationen nås på lokalt
-DB_PASSWORD=secret   # Välj ett lösenord
+APP_PORT=8000          # Port applikationen nås på lokalt
+DB_PASSWORD=secret     # Välj ett lösenord
 DB_ROOT_PASSWORD=root
 ```
 
-### Steg 3 — Starta applikationen
+> `APP_KEY` kan lämnas tom — imagen genererar en nyckel automatiskt vid byggning.
+> Sätt ett eget värde om du vill att sessionerna ska överleva en rebuild:
+> ```bash
+> docker compose run --rm app php artisan key:generate --show
+> ```
+> Kopiera sedan det utskrivna värdet till `APP_KEY=` i `.env`.
+
+### Steg 3 — Bygg och starta applikationen
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-Detta bygger imagen och startar både `app`- och `db`-containrarna i bakgrunden.  
+Detta bygger imagen och startar `app`-, `db`- och `phpmyadmin`-containrarna i bakgrunden.  
 Första bygget tar några minuter.
 
-### Steg 4 — Kör databasmigrationer
+Migrationer körs **automatiskt** när containern startar — inget manuellt steg krävs.
 
-Migrationer måste köras efter `--build`. MySQL-datan nollställs vid rebuild.
+> Vid rebuild nollställs inte databasdata — det sköts av den namngivna volymen `dbdata`.
+> Vill du börja om från scratch: `docker compose down -v` (tar bort volymen).
 
-```bash
-docker exec laravel_app php artisan migrate --force
-```
+### Steg 4 — Öppna i webbläsaren
 
-### Steg 5 — Öppna i webbläsaren
-
-```
-http://localhost:8000
-```
+| Tjänst | URL |
+|---|---|
+| Applikation | `http://localhost:8000` |
+| phpMyAdmin | `http://localhost:8080` |
 
 ### Övriga kommandon
 
 ```bash
 # Stoppa containrarna
-docker-compose down
+docker compose down
 
-# Se loggar
+# Stoppa och ta bort databasvolymen (nollställer databasen)
+docker compose down -v
+
+# Se applikationsloggar
 docker exec laravel_app tail -f /var/www/html/storage/logs/laravel.log
 
 # Öppna ett skal inuti containern
 docker exec -it laravel_app bash
+
+# Kör en enskild Artisan-kommando
+docker exec laravel_app php artisan <kommando>
 ```
 
 ---
@@ -137,7 +182,7 @@ git clone <repo-url>
 cd <projektmapp>
 ```
 
-Via FTP: ladda upp alla filer **utom** `vendor/`, `.env`, `Dockerfile` och `docker-compose.yml`.
+Via FTP: ladda upp alla filer **utom** `vendor/`, `.env`, `Dockerfile`, `docker-compose.yml` och `docker/`.
 
 ### Steg 2 — Installera beroenden
 
@@ -239,6 +284,8 @@ Schema::create('products', function (Blueprint $table) {
 ```bash
 docker exec laravel_app php artisan migrate
 ```
+
+> Migrationen körs även automatiskt nästa gång containern startas om.
 
 ### Steg 4 — Uppdatera modellen
 

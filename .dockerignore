@@ -1,0 +1,29 @@
+# Git and CI
+.git/
+.gitignore
+
+# Secrets – never bake these into the image
+.env
+.env.backup
+.env.production
+
+# PHP dependencies are installed inside the image via composer install.
+# DO NOT mount or copy vendor/ – this is intentional for cross-platform
+# performance (bind-mounting vendor/ is extremely slow on Windows/macOS).
+vendor/
+
+# Node
+node_modules/
+
+# Generated framework caches (ephemeral, created at runtime)
+storage/framework/cache/data/
+storage/framework/sessions/
+storage/framework/views/
+storage/logs/
+
+# Docker and project meta files (not needed inside the container)
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+README.md
+*.md
