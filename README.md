@@ -4,6 +4,27 @@ En Laravel-applikation som körs i Docker med Apache och MySQL.
 
 ---
 
+## Grundläggande filstruktur (Laravel)
+
+```
+projekt/
+├── app/              # Applikationskod — modeller, controllers, providers
+├── bootstrap/        # Applikationsstart och cache
+├── config/           # Konfigurationsfiler
+├── database/         # Migrationer, seeders och factories
+├── public/           # Webbrot — index.php, CSS, JS, bilder
+├── resources/        # Vyer (Blade), obehandlad CSS/JS
+├── routes/           # Routedefinitioner (web.php, console.php m.fl.)
+├── storage/          # Loggar, cachade vyer, uppladdade filer
+├── tests/            # Automatiserade tester (Unit och Feature)
+├── vendor/           # Composer-beroenden (genereras, committas ej)
+├── artisan           # Laravel CLI-verktyg
+├── composer.json     # PHP-beroenden och projektmeta
+└── phpunit.xml       # Testkonfiguration
+```
+
+---
+
 ## Filbeskrivningar
 
 ### `Dockerfile`
