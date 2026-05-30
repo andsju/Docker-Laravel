@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
 # ── PHP extensions ────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ RUN composer install --no-scripts --optimize-autoloader
 # ── Application source ────────────────────────────────────────────────────────
 COPY . .
 RUN composer dump-autoload --optimize
+RUN npm install && npm run build
 
 # ── Build-time APP_KEY + package discovery ────────────────────────────────────
 # A key is generated once at image build time so the app is immediately usable.

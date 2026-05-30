@@ -15,7 +15,8 @@ services:
       - ./database:/var/www/html/database
       - ./routes:/var/www/html/routes
       - ./resources:/var/www/html/resources
-      - ./public:/var/www/html/public
+      - ./public/index.php:/var/www/html/public/index.php
+      - ./public/robots.txt:/var/www/html/public/robots.txt
       - ./storage:/var/www/html/storage
       - ./bootstrap/app.php:/var/www/html/bootstrap/app.php
       - ./bootstrap/providers.php:/var/www/html/bootstrap/providers.php

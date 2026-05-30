@@ -12,6 +12,9 @@
 # performance (bind-mounting vendor/ is extremely slow on Windows/macOS).
 vendor/
 
+# Symlink created by "php artisan storage:link" – not valid in build context
+public/storage
+
 # Node
 node_modules/
 
