@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Laravel')</title>
     <link rel="stylesheet" href="/css/app.css">
-    @vite('resources/scss/app.scss')
+    @vite(['resources/css/app.scss', 'resources/js/app.js'])
 </head>
 <body>
     <nav>
