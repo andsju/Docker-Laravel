@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 set -e
 
 # If APP_KEY is empty in the environment (e.g. not set in host .env),

@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # ── PHP extensions ────────────────────────────────────────────────────────────
@@ -34,9 +36,16 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
 RUN composer install --no-scripts --optimize-autoloader
 
+# ── JS dependencies (dedicated layer for build-cache efficiency) ──────────────
+COPY package.json ./
+RUN npm install --silent
+
 # ── Application source ────────────────────────────────────────────────────────
 COPY . .
 RUN composer dump-autoload --optimize --no-scripts
+
+# ── Build front-end assets ────────────────────────────────────────────────────
+RUN npm run build
 
 # ── Build-time APP_KEY + package discovery ────────────────────────────────────
 # A key is generated once at image build time so the app is immediately usable.

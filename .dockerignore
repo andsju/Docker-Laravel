@@ -21,6 +21,10 @@ storage/framework/sessions/
 storage/framework/views/
 storage/logs/
 
+# public/storage is a Windows symlink/reparse point created by `php artisan storage:link`.
+# Docker cannot transfer reparse points; the link is re-created at runtime by entrypoint.sh.
+public/storage
+
 # Docker and project meta files (not needed inside the container)
 docker-compose.yml
 docker-compose.override.yml
