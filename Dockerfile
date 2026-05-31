@@ -36,7 +36,7 @@ RUN composer install --no-scripts --optimize-autoloader
 
 # ── Application source ────────────────────────────────────────────────────────
 COPY . .
-RUN composer dump-autoload --optimize
+RUN composer dump-autoload --optimize --no-scripts
 
 # ── Build-time APP_KEY + package discovery ────────────────────────────────────
 # A key is generated once at image build time so the app is immediately usable.
@@ -44,12 +44,15 @@ RUN composer dump-autoload --optimize
 # The entrypoint handles the case where .env passes an empty APP_KEY.
 # package:discover writes bootstrap/cache/packages.php so all service providers
 # are registered correctly (skipped by --no-scripts in composer install above).
-RUN cp .env.example .env \
+RUN mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
+    && cp .env.example .env \
     && php artisan key:generate \
     && php artisan package:discover --ansi
 
 # ── Permissions ───────────────────────────────────────────────────────────────
-RUN chown -R www-data:www-data /var/www/html \
+RUN sed -i 's/\r//' docker/entrypoint.sh \
+    && sed -i '1s/^\xEF\xBB\xBF//' docker/entrypoint.sh \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 storage bootstrap/cache \
     && chmod +x docker/entrypoint.sh
 
