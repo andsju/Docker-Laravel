@@ -16,6 +16,7 @@ vendor/
 node_modules/
 
 # Generated framework caches (ephemeral, created at runtime)
+bootstrap/cache/*.php
 storage/framework/cache/data/
 storage/framework/sessions/
 storage/framework/views/

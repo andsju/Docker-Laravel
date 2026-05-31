@@ -54,6 +54,7 @@ RUN npm run build
 # package:discover writes bootstrap/cache/packages.php so all service providers
 # are registered correctly (skipped by --no-scripts in composer install above).
 RUN mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
+    && rm -f bootstrap/cache/*.php \
     && cp .env.example .env \
     && php artisan key:generate \
     && php artisan package:discover --ansi
